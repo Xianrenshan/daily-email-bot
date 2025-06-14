@@ -12,37 +12,38 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # 更新到最新版本
         
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5  # 更新到最新版本
         with:
           python-version: '3.10'
           
       - name: Install dependencies
         run: pip install requests
-        
-      - name: Debug environment variables
+      
+      # 更可靠的环境变量检查
+      - name: Verify environment variables
+        run: |
+          echo "EMAIL_USER length: ${#EMAIL_USER}"
+          echo "EMAIL_PASS length: ${#EMAIL_PASS}"
+          echo "TO_EMAIL value: $TO_EMAIL"
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
-        run: |
-          echo "EMAIL_USER exists: ${!EMAIL_USER:-false}"
-          echo "EMAIL_PASS exists: ${!EMAIL_PASS:-false}"
-          echo "TO_EMAIL exists: ${!TO_EMAIL:-false}"
           
       - name: Run email script
-        id: send-email
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
         run: python email_bot.py
         
-      - name: Upload log file (if exists)
+      # 更新后的日志上传步骤（使用v4版本）
+      - name: Upload log file
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # 修正为当前支持的版本
         with:
           name: email-bot-logs
           path: email.log
