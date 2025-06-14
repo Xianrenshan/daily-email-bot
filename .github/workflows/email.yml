@@ -3,29 +3,40 @@ name: Daily Joke Poem Email
 on:
   schedule:
     - cron: '0 8 * * *'  # 每天UTC时间8:00（北京时间16:00）发送
-  workflow_dispatch:  # 支持手动触发
+  workflow_dispatch:     # 支持手动触发
 
 jobs:
   send-email:
+    # 指定使用"Configure EMAIL_USER"环境（必须与截图中的环境名完全一致）
+    environment: 
+      name: EMAIL_USER
+    
+    # 关键：添加环境权限（启用对Environment Secrets的访问）
+    permissions:
+      contents: read
+      id-token: write
+      deployments: write
+      environments: write
+    
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # 设置超时时间
+    timeout-minutes: 5
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4  # 更新到最新版本
+        uses: actions/checkout@v4
         
       - name: Set up Python
-        uses: actions/setup-python@v5  # 更新到最新版本
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           
       - name: Install dependencies
         run: pip install requests
-      
-      # 更可靠的环境变量检查
+        
+      # 环境变量检查（确认Secrets已加载）
       - name: Verify environment variables
         run: |
-          echo "EMAIL_USER length: ${#EMAIL_USER}"
+          echo "EMAIL_USER length: ${#EMAIL_USER}"  # 显示变量长度而不暴露内容
           echo "EMAIL_PASS length: ${#EMAIL_PASS}"
           echo "TO_EMAIL value: $TO_EMAIL"
         env:
@@ -33,6 +44,7 @@ jobs:
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
           
+      # 邮件脚本运行（使用环境变量）
       - name: Run email script
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
@@ -40,10 +52,11 @@ jobs:
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
         run: python email_bot.py
         
-      # 更新后的日志上传步骤（使用v4版本）
-      - name: Upload log file
+      # 日志上传（用于调试）
+      - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@v4  # 修正为当前支持的版本
+        uses: actions/upload-artifact@v4
         with:
           name: email-bot-logs
-          path: email.log
+          path: |
+            email.log
