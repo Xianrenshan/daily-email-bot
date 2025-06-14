@@ -5,6 +5,7 @@ import logging
 import socket
 from email.mime.text import MIMEText
 from email.header import Header
+from email.utils import formataddr  # 关键修复点
 
 # 初始化日志
 logging.basicConfig(
@@ -68,10 +69,15 @@ def send_email():
         # 创建邮件
         msg = MIMEText(content, 'plain', 'utf-8')
         msg['Subject'] = Header('每日一笑一诗', 'utf-8')
-        msg['From'] = f'笑诗机器人 <{email_user}>'
-        msg['To'] = to_email
         
-        # 使用587端口+TLS连接（关键修改！）
+        # 关键修复：使用RFC 5322兼容格式设置From头部
+        msg['From'] = formataddr(('笑诗机器人', email_user))
+        
+        # 确保To头部也是正确格式
+        if '@' in to_email:  # 安全检查
+            msg['To'] = to_email
+        
+        # 使用587端口+TLS连接
         logger.info("连接到QQ邮箱(端口587)使用STARTTLS...")
         
         # 创建非加密连接
@@ -97,11 +103,6 @@ def send_email():
         logger.info("邮件发送成功！")
         return True
         
-    except socket.gaierror:
-        logger.error("无法解析smtp.qq.com，请检查DNS设置")
-    except smtplib.SMTPAuthenticationError:
-        logger.error("邮箱认证失败！请检查邮箱和授权码")
-        logger.error("提示：QQ邮箱需使用授权码而非密码")
     except Exception as e:
         logger.error(f"邮件发送失败: {str(e)}")
         return False
