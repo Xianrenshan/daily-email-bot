@@ -2,8 +2,7 @@ import os
 import smtplib
 import requests
 import logging
-import time
-import ssl
+import socket
 from email.mime.text import MIMEText
 from email.header import Header
 
@@ -17,84 +16,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
-def safe_api_call(url, retries=3, delay=1):
-    """安全的API调用，带重试机制"""
-    for attempt in range(retries):
-        try:
-            response = requests.get(url, timeout=8)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.warning(f"API请求失败 (尝试 {attempt+1}/{retries}): {str(e)}")
-            time.sleep(delay)
-    return None
-
 def get_joke():
-    """获取笑话内容，带备选方案"""
+    """获取笑话内容（使用可靠API）"""
     try:
-        data = safe_api_call("https://v2.jokeapi.dev/joke/Any?type=twopart")
-        if data and not data.get('error'):
-            return f"{data.get('setup', '')}\n\n{data.get('delivery', '')}"
-    except Exception:
-        pass
-    
-    # 备选笑话API
-    try:
-        data = safe_api_call("https://official-joke-api.appspot.com/random_joke")
-        if data:
-            return f"{data.get('setup', '')}\n\n{data.get('punchline', '')}"
-    except Exception:
-        pass
-    
-    return "虽然今天笑话缺席，但快乐从不缺席！😄"
+        # 使用稳定可靠的笑话API
+        response = requests.get("https://official-joke-api.appspot.com/random_joke", timeout=8)
+        response.raise_for_status()
+        data = response.json()
+        return f"{data.get('setup', '')}\n\n{data.get('punchline', '')}"
+    except Exception as e:
+        logger.error(f"笑话API错误: {str(e)}")
+        return "生活本身就是最好的笑料，请开怀一笑吧！😄"
 
 def get_poem():
-    """获取诗歌内容，带备选方案"""
+    """获取诗歌内容（使用可靠API）"""
     try:
-        # 更换更可靠的中文诗歌API
-        data = safe_api_call("https://api.apiopen.top/api/sentences")
-        if data and data.get('code') == 200:
-            result = data.get('result', {})
-            return f"{result.get('name', '')}\n\n{result.get('content', '')}"
-    except Exception:
-        pass
-    
-    # 备选诗歌API
-    try:
-        data = safe_api_call("https://poetrydb.org/random/1")
-        if data and isinstance(data, list) and data[0]:
-            poem = data[0]
-            lines = "\n".join(poem.get('lines', []))
-            return f"《{poem.get('title', '')}》\n\n{lines}\n\n—— {poem.get('author', '')}"
-    except Exception:
-        pass
-    
-    # 保底内容
-    return "生活的诗篇，永远比纸上的文字更动人。🌈"
-
-def connect_smtp(email_user, email_pass):
-    """安全连接SMTP服务器"""
-    try:
-        logger.info("尝试加密方式连接QQ邮箱...")
-        
-        # 创建SSL上下文（使用高安全性配置）
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.minimum_version = ssl.TLSVersion.TLSv1_2
-        context.set_ciphers('DEFAULT@SECLEVEL=2')
-        
-        # 使用安全连接
-        with smtplib.SMTP_SSL('smtp.qq.com', 465, context=context, timeout=15) as server:
-            server.login(email_user, email_pass)
-            logger.info("QQ邮箱登录成功！")
-            return server
-    except ssl.SSLError as e:
-        logger.error(f"SSL连接错误: {str(e)}")
+        # 使用稳定的诗歌API
+        response = requests.get("https://poetrydb.org/random/1", timeout=8)
+        response.raise_for_status()
+        poem = response.json()[0]
+        lines = "\n".join(poem.get('lines', []))
+        return f"《{poem.get('title', '')}》\n\n{lines}\n\n—— {poem.get('author', '')}"
     except Exception as e:
-        logger.error(f"连接失败: {str(e)}")
-    
-    return None
+        logger.error(f"诗歌API错误: {str(e)}")
+        return "心灵自有诗意，请用心感受生活的美好。📜"
 
 def send_email():
+    """发送邮件的主函数"""
     try:
         # 获取环境变量
         email_user = os.environ['EMAIL_USER']
@@ -123,17 +71,37 @@ def send_email():
         msg['From'] = f'笑诗机器人 <{email_user}>'
         msg['To'] = to_email
         
-        # 创建安全连接
-        smtp_server = connect_smtp(email_user, email_pass)
-        if not smtp_server:
-            raise ConnectionError("无法建立SMTP连接")
+        # 使用587端口+TLS连接（关键修改！）
+        logger.info("连接到QQ邮箱(端口587)使用STARTTLS...")
         
-        # 发送邮件
-        smtp_server.sendmail(email_user, [to_email], msg.as_string())
+        # 创建非加密连接
+        server = smtplib.SMTP('smtp.qq.com', 587, timeout=15)
+        
+        # 尝试通过STARTTLS升级连接
+        server.ehlo()
+        if not server.has_extn('STARTTLS'):
+            raise RuntimeError("SMTP服务器不支持STARTTLS")
+        
+        # 启动安全传输
+        server.starttls()
+        server.ehlo()
+        
+        # 登录和发送
+        logger.info("登录邮箱...")
+        server.login(email_user, email_pass)
+        logger.info("发送邮件...")
+        server.sendmail(email_user, [to_email], msg.as_string())
+        
+        # 优雅关闭
+        server.quit()
         logger.info("邮件发送成功！")
-        
         return True
         
+    except socket.gaierror:
+        logger.error("无法解析smtp.qq.com，请检查DNS设置")
+    except smtplib.SMTPAuthenticationError:
+        logger.error("邮箱认证失败！请检查邮箱和授权码")
+        logger.error("提示：QQ邮箱需使用授权码而非密码")
     except Exception as e:
         logger.error(f"邮件发送失败: {str(e)}")
         return False
