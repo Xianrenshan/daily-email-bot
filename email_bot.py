@@ -35,7 +35,7 @@ def send_email():
     msg['From'] = email_user
     msg['To'] = to_email
     
-    with smtplib.SMTP_SSL('smtp.163.com', 465) as server:
+    with smtplib.SMTP_SSL('smtp.qq.com', 465) as server:
         server.login(email_user, email_pass)
         server.sendmail(email_user, [to_email], msg.as_string())
 
