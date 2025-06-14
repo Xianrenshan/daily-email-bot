@@ -2,12 +2,14 @@ name: Daily Joke Poem Email
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # 每天北京时间16:00发送（UTC时间8点）
+    - cron: '0 8 * * *'  # 每天UTC时间8:00（北京时间16:00）发送
   workflow_dispatch:  # 支持手动触发
 
 jobs:
   send-email:
     runs-on: ubuntu-latest
+    timeout-minutes: 5  # 设置超时时间
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,9 +22,27 @@ jobs:
       - name: Install dependencies
         run: pip install requests
         
+      - name: Debug environment variables
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+        run: |
+          echo "EMAIL_USER exists: ${!EMAIL_USER:-false}"
+          echo "EMAIL_PASS exists: ${!EMAIL_PASS:-false}"
+          echo "TO_EMAIL exists: ${!TO_EMAIL:-false}"
+          
       - name: Run email script
+        id: send-email
         env:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
         run: python email_bot.py
+        
+      - name: Upload log file (if exists)
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: email-bot-logs
+          path: email.log
