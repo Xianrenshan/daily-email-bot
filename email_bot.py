@@ -53,7 +53,7 @@ def create_html_email(joke, poem):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>每日一笑一诗</title>
+    <title>每日精选</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; line-height: 1.6; background: #f7f9fc; padding: 20px; color: #333; }}
@@ -93,8 +93,8 @@ def create_html_email(joke, poem):
 <body>
     <div class="container">
         <div class="header">
-            <div class="header-title">每日一笑一诗</div>
-            <div class="header-subtitle">让笑声与诗意点亮您的一天</div>
+            <div class="header-title"></div>
+            <div class="header-subtitle"></div>
         </div>
         
         <div class="content">
